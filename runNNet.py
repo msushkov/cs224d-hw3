@@ -6,6 +6,7 @@ from rntn import RNTN
 from rnn2deep import RNN2
 from rnn import RNN
 #from dcnn import DCNN
+from rnn_changed import RNN3
 import tree as tr
 import time
 import matplotlib.pyplot as plt
@@ -18,9 +19,9 @@ import pdb
 
 # You should update run.sh accordingly before you run it!
 
+
 # TODO:
 # Create your plots here
-
 
 def run(args=None):
     usage = "usage : %prog [options]"
@@ -58,7 +59,7 @@ def run(args=None):
     (opts,args)=parser.parse_args(args)
 
 
-    # make this false if you dont care about your accuracies per epoch
+    # make this false if you dont care about your accuracies per epoch, makes things faster!
     evaluate_accuracy_while_training = True
 
     # Testing
@@ -79,17 +80,21 @@ def run(args=None):
         nn = RNN(opts.wvecDim,opts.outputDim,opts.numWords,opts.minibatch)
     elif(opts.model=='RNN2'):
         nn = RNN2(opts.wvecDim,opts.middleDim,opts.outputDim,opts.numWords,opts.minibatch)
+    elif(opts.model=='RNN3'):
+        nn = RNN3(opts.wvecDim,opts.middleDim,opts.outputDim,opts.numWords,opts.minibatch)
     elif(opts.model=='DCNN'):
         nn = DCNN(opts.wvecDim,opts.ktop,opts.m1,opts.m2, opts.n1, opts.n2,0, opts.outputDim,opts.numWords, 2, opts.minibatch,rho=1e-4)
         trees = cnn.tree2matrix(trees)
     else:
-        raise '%s is not a valid neural network so far only RNTN, RNN, RNN2, and DCNN'%opts.model
+        raise '%s is not a valid neural network so far only RNTN, RNN, RNN2, RNN3, and DCNN'%opts.model
     
     nn.initParams()
 
     sgd = optimizer.SGD(nn,alpha=opts.step,minibatch=opts.minibatch,
         optimizer=opts.optimizer)
 
+
+    dev_trees = tr.loadTrees("dev")
     for e in range(opts.epochs):
         start = time.time()
         print "Running epoch %d"%e
@@ -105,9 +110,17 @@ def run(args=None):
             print "testing on training set real quick"
             train_accuracies.append(test(opts.outFile,"train",opts.model,trees))
             print "testing on dev set real quick"
-            dev_accuracies.append(test(opts.outFile,"dev",opts.model))
+            dev_accuracies.append(test(opts.outFile,"dev",opts.model,dev_trees))
+            # clear the fprop flags in trees and dev_trees
+            for tree in trees:
+                tr.leftTraverse(tree.root,nodeFn=tr.clearFprop)
+            for tree in dev_trees:
+                tr.leftTraverse(tree.root,nodeFn=tr.clearFprop)
+            print "fprop in trees cleared"
+
 
     if evaluate_accuracy_while_training:
+        pdb.set_trace()
         print train_accuracies
         print dev_accuracies
         # TODO:
@@ -126,14 +139,15 @@ def test(netFile,dataSet, model='RNN', trees=None):
             nn = RNTN(opts.wvecDim,opts.outputDim,opts.numWords,opts.minibatch)
         elif(model=='RNN'):
             nn = RNN(opts.wvecDim,opts.outputDim,opts.numWords,opts.minibatch)
-            
         elif(model=='RNN2'):
             nn = RNN2(opts.wvecDim,opts.middleDim,opts.outputDim,opts.numWords,opts.minibatch)
+        elif(opts.model=='RNN3'):
+            nn = RNN3(opts.wvecDim,opts.middleDim,opts.outputDim,opts.numWords,opts.minibatch)
         elif(model=='DCNN'):
             nn = DCNN(opts.wvecDim,opts.ktop,opts.m1,opts.m2, opts.n1, opts.n2,0, opts.outputDim,opts.numWords, 2, opts.minibatch,rho=1e-4)
             trees = cnn.tree2matrix(trees)
         else:
-            raise '%s is not a valid neural network so far only RNTN, RNN, RNN2, and DCNN'%opts.model
+            raise '%s is not a valid neural network so far only RNTN, RNN, RNN2, RNN3, and DCNN'%opts.model
         
         nn.initParams()
         nn.fromFile(fid)
@@ -146,11 +160,13 @@ def test(netFile,dataSet, model='RNN', trees=None):
         correct_sum+=(guess[i]==correct[i])
     
     # TODO
-    # Plot the confusion matrix
+    # Plot the confusion matrix?
+
     
     
     print "Cost %f, Acc %f"%(cost,correct_sum/float(total))
     return correct_sum/float(total)
+
 
 def makeconf(conf_arr):
     # makes a confusion matrix plot when provided a matrix conf_arr

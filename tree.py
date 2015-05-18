@@ -1,6 +1,5 @@
 import collections
 UNK = 'UNK'
-
 # This file contains the dataset in a useful way. We populate a list of Trees to train/test our Neural Nets such that each Tree contains any number of Node objects.
 
 # The best way to get a feel for how these objects are used in the program is to drop pdb.set_trace() in a few places throughout the codebase
@@ -15,7 +14,7 @@ class Node: # a node in the tree
         self.left = None # reference to left child
         self.right = None # reference to right child
         self.isLeaf = False # true if I am a leaf (could have probably derived this from if I have a word)
-        self.fprop = False # true if we are currently performing fprop
+        self.fprop = False # true if we have finished performing fowardprop on this node (note, there are many ways to implement the recursion.. some might not require this flag)
         self.hActs1 = None # h1 from the handout
         self.hActs2 = None # h2 from the handout (only used for RNN2)
         self.probs = None # yhat
@@ -49,7 +48,8 @@ class Tree:
             split += 1
 
         # New node
-        node = Node(int(tokens[1])-1) # zero index labels
+        node = Node(int(tokens[1])) # zero index labels
+
         node.parent = parent 
 
         # leaf Node
@@ -81,6 +81,9 @@ def leftTraverse(root,nodeFn=None,args=None):
 def countWords(node,words):
     if node.isLeaf:
         words[node.word] += 1
+
+def clearFprop(node,words):
+    node.fprop = False
 
 def mapWords(node,wordMap):
     if node.isLeaf:

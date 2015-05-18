@@ -1,18 +1,15 @@
 import numpy as np
 import collections
+import pdb
 
-# This is a simple Recursive Neural Netowrk with one ReLU Layer and a softmax layer
-# TODO: You must update the forward and backward propogation functions of this file.
 
-# You can run this file via 'python rnn.py' to perform a gradient check! 
 
-# tip: insert pdb.set_trace() in places where you are unsure whats going on
+class RNN3:
 
-class RNN:
-
-    def __init__(self,wvecDim,outputDim,numWords,mbSize=30,rho=1e-4):
+    def __init__(self,wvecDim, middleDim, outputDim,numWords,mbSize=30,rho=1e-4):
         self.wvecDim = wvecDim
         self.outputDim = outputDim
+        self.middleDim = middleDim
         self.numWords = numWords
         self.mbSize = mbSize
         self.defaultVec = lambda : np.zeros((wvecDim,))
@@ -21,24 +18,7 @@ class RNN:
     def initParams(self):
         np.random.seed(12341)
 
-        # Word vectors
-        self.L = 0.01*np.random.randn(self.wvecDim,self.numWords)
 
-        # Hidden layer parameters
-        self.W = 0.01*np.random.randn(self.wvecDim,2*self.wvecDim)
-        self.b = np.zeros((self.wvecDim))
-
-        # Softmax weights
-        self.Ws = 0.01*np.random.randn(self.outputDim,self.wvecDim) # note this is " U " in the notes and the handout.. there is a reason for the change in notation
-        self.bs = np.zeros((self.outputDim))
-
-        self.stack = [self.L, self.W, self.b, self.Ws, self.bs]
-
-        # Gradients
-        self.dW = np.empty(self.W.shape)
-        self.db = np.empty((self.wvecDim))
-        self.dWs = np.empty(self.Ws.shape)
-        self.dbs = np.empty((self.outputDim))
 
     def costAndGrad(self,mbdata,test=False): 
         """
@@ -47,24 +27,26 @@ class RNN:
         Backprop each tree.
         Returns
            cost
-           Gradient w.r.t. W, Ws, b, bs
+           Gradient w.r.t. W1, W2, Ws, b1, b2, bs
            Gradient w.r.t. L in sparse form.
 
         or if in test mode
         Returns 
            cost, correctArray, guessArray, total
-           
         """
         cost = 0.0
         correct = []
         guess = []
         total = 0.0
 
-        self.L,self.W,self.b,self.Ws,self.bs = self.stack
-
+        self.L, self.W1, self.b1, self.W2, self.b2, self.Ws, self.bs = self.stack
         # Zero gradients
-        self.dW[:] = 0
-        self.db[:] = 0
+        self.dW1[:] = 0
+        self.db1[:] = 0
+        
+        self.dW2[:] = 0
+        self.db2[:] = 0
+
         self.dWs[:] = 0
         self.dbs[:] = 0
         self.dL = collections.defaultdict(self.defaultVec)
@@ -74,8 +56,9 @@ class RNN:
             c,tot = self.forwardProp(tree.root,correct,guess)
             cost += c
             total += tot
+            
         if test:
-            return (1./len(mbdata))*cost,correct,guess,total
+            return (1./len(mbdata))*cost,correct, guess, total
 
         # Back prop each tree in minibatch
         for tree in mbdata:
@@ -87,40 +70,23 @@ class RNN:
             v *=scale
         
         # Add L2 Regularization 
-        cost += (self.rho/2)*np.sum(self.W**2)
+        cost += (self.rho/2)*np.sum(self.W1**2)
+        cost += (self.rho/2)*np.sum(self.W2**2)
         cost += (self.rho/2)*np.sum(self.Ws**2)
 
-        return scale*cost,[self.dL,scale*(self.dW + self.rho*self.W),scale*self.db,
-                           scale*(self.dWs+self.rho*self.Ws),scale*self.dbs]
+        return scale*cost,[self.dL,scale*(self.dW1 + self.rho*self.W1),scale*self.db1,
+                                   scale*(self.dW2 + self.rho*self.W2),scale*self.db2,
+                                   scale*(self.dWs+self.rho*self.Ws),scale*self.dbs]
 
-    def forwardProp(self,node,correct=[], guess=[]):
-        cost  =  total = 0.0 # cost should be a running number and total is the total examples we have seen used in accuracy reporting later
-        ################
-        # TODO: Implement the recursive forwardProp function
-        #  - you should update node.probs, node.hActs1, node.fprop, and cost
-        #  - node: your current node in the parse tree
-        #  - correct: this is a running list of truth labels
-        #  - guess: this is a running list of guess that our model makes
-        #     (we will use both correct and guess to make our confusion matrix)
-        ################
 
-        
-
+    def forwardProp(self,node, correct=[], guess=[]):
+        cost  =  total = 0.0
         return cost, total + 1
-
 
     def backProp(self,node,error=None):
 
         # Clear nodes
         node.fprop = False
-
-        ################
-        # TODO: Implement the recursive backProp function
-        #  - you should update self.dWs, self.dbs, self.dW, self.db, and self.dL[node.word] accordingly
-        #  - node: your current node in the parse tree
-        #  - error: error that has been passed down from a previous iteration
-        ################
-
 
         
     def updateParams(self,scale,update,log=False):
@@ -157,7 +123,7 @@ class RNN:
 
         err1 = 0.0
         count = 0.0
-        print "Checking dW..."
+        print "Checking dWs, dW1 and dW2..."
         for W,dW in zip(self.stack[1:],grad[1:]):
             W = W[...,None] # add dimension since bias is flat
             dW = dW[...,None] 
@@ -170,8 +136,7 @@ class RNN:
                     err = np.abs(dW[i,j] - numGrad)
                     err1+=err
                     count+=1
-        pdb.set_trace()
-        if 0.001 > err1:
+        if 0.001 > err1/count:
             print "Grad Check Passed for dW"
         else:
             print "Grad Check Failed for dW: Sum of Error = %.9f" % (err1/count)
@@ -191,7 +156,7 @@ class RNN:
                 err2+=err
                 count+=1
 
-        if 0.001 > err2:
+        if 0.001 > err2/count:
             print "Grad Check Passed for dL"
         else:
             print "Grad Check Failed for dL: Sum of Error = %.9f" % (err2/count)
@@ -203,9 +168,10 @@ if __name__ == '__main__':
     numW = len(treeM.loadWordMap())
 
     wvecDim = 10
+    middleDim = 10
     outputDim = 5
 
-    rnn = RNN(wvecDim,outputDim,numW,mbSize=4)
+    rnn = RNN3(wvecDim,middleDim,outputDim,numW,mbSize=4)
     rnn.initParams()
 
     mbData = train[:4]
