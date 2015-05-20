@@ -7,7 +7,7 @@ set -x
 ###################
 
 # training params
-epochs=30
+epochs=40
 step=1e-2
 wvecDim=30
 

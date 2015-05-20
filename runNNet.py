@@ -12,6 +12,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import pdb
+from matplotlib.pyplot import *
 
 
 # This is the main training function of the codebase. You are intended to run this function via command line 
@@ -60,7 +61,7 @@ def run(args=None):
 
 
     # make this false if you dont care about your accuracies per epoch, makes things faster!
-    evaluate_accuracy_while_training = True
+    evaluate_accuracy_while_training = False
 
     # Testing
     if opts.test:
@@ -123,18 +124,18 @@ def run(args=None):
         #pdb.set_trace()
         #print train_accuracies
         #print dev_accuracies
-        # TODO:
         # Plot train/dev_accuracies here?
         x = range(opts.epochs)
         figure(figsize=(6,4))
         plot(x, train_accuracies, color='b', marker='o', linestyle='-', label="training")
         plot(x, dev_accuracies, color='g', marker='o', linestyle='-', label="dev")
-        title("Train and dev accuracies vs epochs for wvecdim = 30.")
+        title("Accuracy vs num epochs for wvecdim = 30.")
         xlabel("Epochs")
         ylabel("Accuracy")
         #ylim(ymin=0, ymax=max(1.1*max(train_accuracies),3*min(train_accuracies)))
         legend()
         savefig("train_dev_acc_wvecdim30.png")
+        #pdb.set_trace()
 
 def test(netFile,dataSet, model='RNN', trees=None):
     if trees==None:
