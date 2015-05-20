@@ -1,5 +1,6 @@
 import numpy as np
 import collections
+import pdb
 
 # This is a simple Recursive Neural Netowrk with one ReLU Layer and a softmax layer
 # TODO: You must update the forward and backward propogation functions of this file.
@@ -7,6 +8,24 @@ import collections
 # You can run this file via 'python rnn.py' to perform a gradient check! 
 
 # tip: insert pdb.set_trace() in places where you are unsure whats going on
+
+
+def relu(x):
+    return np.maximum(x, 0)
+
+def softmax(x):
+    input_x = x
+    
+    if len(x.shape) == 1:
+        x = x.reshape((1, x.shape[0]))
+    
+    row_maxes = np.amax(x, axis=1).reshape((x.shape[0], 1))
+    x = np.exp(x - row_maxes)
+    row_sums = np.sum(x, axis=1).reshape((x.shape[0], 1))
+    x = x / row_sums
+    x = x.reshape(input_x.shape)
+    
+    return x
 
 class RNN:
 
@@ -104,7 +123,36 @@ class RNN:
         #     (we will use both correct and guess to make our confusion matrix)
         ################
 
-        
+        # in grad check:
+        # self.Ws is (5, 10)
+        # self.bs is (5,)
+        # self.W is (10, 20)
+        # self.b is (10,)
+
+        # if we are in a leaf node, set hActs1 to be the word vector
+        if node.isLeaf:
+            node.hActs1 = self.L[:, node.word] # shape is (10,)
+        else:
+            # if haven't finished doing forward prop on the left child, do it
+            if not node.left.fprop:
+                cost_left, total_left = self.forwardProp(node.left, correct, guess)
+                cost += cost_left
+                total += total_left
+            # if haven't finished doing forward prop on the right child, do it
+            if not node.right.fprop:
+                cost_right, total_right = self.forwardProp(node.right, correct, guess)
+                cost += cost_right
+                total += total_right
+
+            # both left and right child now have hActs1
+            node.hActs1 = relu(np.dot(self.W, np.hstack([node.left.hActs1, node.right.hActs1])) + self.b)
+
+        y_hat = softmax(np.dot(self.Ws, node.hActs1) + self.bs)
+        node.probs = y_hat
+        cost -= np.log(y_hat[node.label])
+        node.fprop = True
+        correct.append(node.label)
+        guess.append(np.argmax(y_hat))        
 
         return cost, total + 1
 
@@ -121,6 +169,29 @@ class RNN:
         #  - error: error that has been passed down from a previous iteration
         ################
 
+        # y_hat - y
+        delta3 = node.probs
+        delta3[node.label] -= 1.0
+
+        self.dbs += delta3
+
+        # dU
+        self.dWs += np.outer(delta3, node.hActs1)
+
+        delta2 = np.dot(self.Ws.T, delta3)
+
+        if error is not None:
+            delta2 += error
+
+        if node.isLeaf:
+            self.dL[node.word] += delta2
+        else:
+            delta1 = delta2 * (node.hActs1 > 0)
+            self.db += delta1
+            self.dW += np.outer(delta1, np.hstack([node.left.hActs1, node.right.hActs1]))
+            delta0 = np.dot(self.W.T, delta1)
+            self.backProp(node.left, delta0[:self.wvecDim])
+            self.backProp(node.right, delta0[self.wvecDim:])
 
         
     def updateParams(self,scale,update,log=False):
@@ -170,8 +241,8 @@ class RNN:
                     err = np.abs(dW[i,j] - numGrad)
                     err1+=err
                     count+=1
-        pdb.set_trace()
-        if 0.001 > err1:
+        #pdb.set_trace()
+        if 0.001 > err1 / count:
             print "Grad Check Passed for dW"
         else:
             print "Grad Check Failed for dW: Sum of Error = %.9f" % (err1/count)
@@ -191,7 +262,7 @@ class RNN:
                 err2+=err
                 count+=1
 
-        if 0.001 > err2:
+        if 0.001 > err2 / count:
             print "Grad Check Passed for dL"
         else:
             print "Grad Check Failed for dL: Sum of Error = %.9f" % (err2/count)

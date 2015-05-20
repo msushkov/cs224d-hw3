@@ -11,6 +11,24 @@ import pdb
 # tip: insert pdb.set_trace() in places where you are unsure whats going on
 
 
+def relu(x):
+    return np.maximum(x, 0)
+
+def softmax(x):
+    input_x = x
+    
+    if len(x.shape) == 1:
+        x = x.reshape((1, x.shape[0]))
+    
+    row_maxes = np.amax(x, axis=1).reshape((x.shape[0], 1))
+    x = np.exp(x - row_maxes)
+    row_sums = np.sum(x, axis=1).reshape((x.shape[0], 1))
+    x = x / row_sums
+    x = x.reshape(input_x.shape)
+    
+    return x
+
+
 class RNN2:
 
     def __init__(self,wvecDim, middleDim, outputDim,numWords,mbSize=30,rho=1e-4):
@@ -112,18 +130,70 @@ class RNN2:
 
     def forwardProp(self,node, correct=[], guess=[]):
         cost  =  total = 0.0
-        # this is exactly the same setup as forwardProp in rnn.py
+
+        # if we are in a leaf node, set hActs1 to be the word vector
+        if node.isLeaf:
+            node.hActs1 = self.L[:, node.word] # shape is (10,)
+        else:
+            # if haven't finished doing forward prop on the left child, do it
+            if not node.left.fprop:
+                cost_left, total_left = self.forwardProp(node.left, correct, guess)
+                cost += cost_left
+                total += total_left
+            # if haven't finished doing forward prop on the right child, do it
+            if not node.right.fprop:
+                cost_right, total_right = self.forwardProp(node.right, correct, guess)
+                cost += cost_right
+                total += total_right
+
+            # both left and right child now have hActs1
+            node.hActs1 = relu(np.dot(self.W1, np.hstack([node.left.hActs1, node.right.hActs1])) + self.b1)
         
+        node.hActs2 = relu(np.dot(self.W2, node.hActs1) + self.b2)
+        y_hat = softmax(np.dot(self.Ws, node.hActs2) + self.bs)
+        node.probs = y_hat
+        cost -= np.log(y_hat[node.label])
+        node.fprop = True
+        correct.append(node.label)
+        guess.append(np.argmax(y_hat))        
 
         return cost, total + 1
+
 
     def backProp(self,node,error=None):
 
         # Clear nodes
         node.fprop = False
 
-        # this is exactly the same setup as backProp in rnn.py
-        
+        # y_hat - y
+        delta5 = node.probs
+        delta5[node.label] -= 1.0
+
+        self.dbs += delta5
+
+        # dU
+        self.dWs += np.outer(delta5, node.hActs2)
+
+        delta4 = np.dot(self.Ws.T, delta5)
+        delta3 = delta4 * (node.hActs2 > 0)
+
+        self.db2 += delta3
+        self.dW2 += np.outer(delta3, node.hActs1)
+
+        delta2 = np.dot(self.W2.T, delta3)
+
+        if error is not None:
+            delta2 += error
+
+        if node.isLeaf:
+            self.dL[node.word] += delta2
+        else:
+            delta1 = delta2 * (node.hActs1 > 0)
+            self.db1 += delta1
+            self.dW1 += np.outer(delta1, np.hstack([node.left.hActs1, node.right.hActs1]))
+            delta0 = np.dot(self.W1.T, delta1)
+            self.backProp(node.left, delta0[:self.wvecDim])
+            self.backProp(node.right, delta0[self.wvecDim:])
         
 
         

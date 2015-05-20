@@ -120,11 +120,21 @@ def run(args=None):
 
 
     if evaluate_accuracy_while_training:
-        pdb.set_trace()
-        print train_accuracies
-        print dev_accuracies
+        #pdb.set_trace()
+        #print train_accuracies
+        #print dev_accuracies
         # TODO:
         # Plot train/dev_accuracies here?
+        x = range(opts.epochs)
+        figure(figsize=(6,4))
+        plot(x, train_accuracies, color='b', marker='o', linestyle='-', label="training")
+        plot(x, dev_accuracies, color='g', marker='o', linestyle='-', label="dev")
+        title("Train and dev accuracies vs epochs for wvecdim = 30.")
+        xlabel("Epochs")
+        ylabel("Accuracy")
+        #ylim(ymin=0, ymax=max(1.1*max(train_accuracies),3*min(train_accuracies)))
+        legend()
+        savefig("train_dev_acc_wvecdim30.png")
 
 def test(netFile,dataSet, model='RNN', trees=None):
     if trees==None:
@@ -161,7 +171,13 @@ def test(netFile,dataSet, model='RNN', trees=None):
     
     # TODO
     # Plot the confusion matrix?
+    conf_arr = np.zeros((5, 5))
+    for i in xrange(len(correct)):
+        curr_correct = correct[i]
+        curr_guess = guess[i]
+        conf_arr[curr_correct][curr_guess] += 1.0
 
+    makeconf(conf_arr)
     
     
     print "Cost %f, Acc %f"%(cost,correct_sum/float(total))
@@ -200,7 +216,7 @@ def makeconf(conf_arr):
     plt.xticks(range(width), indexs[:width])
     plt.yticks(range(height), indexs[:height])
     # you can save the figure here with:
-    # plt.savefig("pathname/image.png")
+    plt.savefig("conf_matrix.png")
 
     plt.show()
 
