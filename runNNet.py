@@ -134,7 +134,7 @@ def run(args=None):
         ylabel("Accuracy")
         #ylim(ymin=0, ymax=max(1.1*max(train_accuracies),3*min(train_accuracies)))
         legend()
-        savefig("train_dev_acc_wvecdim30.png")
+        savefig("train_dev_acc_rnn2.png")
         #pdb.set_trace()
 
 def test(netFile,dataSet, model='RNN', trees=None):
@@ -178,7 +178,7 @@ def test(netFile,dataSet, model='RNN', trees=None):
         curr_guess = guess[i]
         conf_arr[curr_correct][curr_guess] += 1.0
 
-    makeconf(conf_arr)
+    #makeconf(conf_arr)
     
     
     print "Cost %f, Acc %f"%(cost,correct_sum/float(total))

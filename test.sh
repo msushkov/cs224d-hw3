@@ -4,8 +4,8 @@
 set -x
 
 
-infile="models/RNN_wvecDim_variable_step_1e-2_2.bin" # the pickled neural network
-model="RNN" # the neural network type
+infile="models/RNN2_wvecDim_30_middleDim_5_step_1e-2_2.bin" # the pickled neural network
+model="RNN2" # the neural network type
 
 echo $infile
 
